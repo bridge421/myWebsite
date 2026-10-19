@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>蓝牙主机控制</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+            padding: 20px 10px;
+        }
+
+        .master,
+        .volume-group,
+        .fx-section,
+        .eq-section,
+        .freq-section,
+        .btn-group {
+            width: 100% !important;
+            max-width: 1080px;
+        }
+
+        .master {
+            height: auto;
+            padding: 20px;
+            border: 3px solid #e74c3c;
+            border-radius: 12px;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+
+        .master-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #e74c3c;
+            margin-bottom: 20px;
+        }
+
+        .ports-container {
+            display: flex;
+            gap: 60px;
+        }
+
+        .port {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .port-box {
+            width: 70px;
+            height: 45px;
+            border: 3px solid #333;
+            border-radius: 6px;
+            background-color: #ddd;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        .port-box.connected {
+            background-color: #2ecc71;
+            border-color: #27ae60;
+        }
+
+        .port-label {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .btn-group {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: nowrap;
+            align-items: stretch;
+        }
+
+        .control-btn {
+            padding: 12px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 6px;
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+            flex: 1;
+            min-width: 100px;
+        }
+
+        .control-btn.working,
+        .control-btn.working:disabled {
+            background-color: #e74c3c;
+        }
+
+        .connect-btn {
+            flex: 4 1 0;
+        }
+
+        .confirm-btn {
+            flex: 1 1 0;
+            min-width: 72px;
+            padding: 12px 8px;
+            font-size: 16px;
+        }
+
+        .sync-btn {
+            flex: 1 1 0;
+            min-width: 72px;
+            padding: 12px 8px;
+            font-size: 16px;
+        }
+
+        .control-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .volume-group {
+            margin-bottom: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .vol-row {
+            display: grid;
+            grid-template-columns: 70px minmax(0, 1fr);
+            align-items: center;
+            gap: 10px;
+        }
+
+        .vol-tag {
+            font-size: 24px;
+            font-weight: bold;
+            width: 70px;
+            text-align: center;
+            white-space: nowrap;
+            line-height: 1;
+        }
+
+        .vol-control {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .vol-bar {
+            flex: 1;
+            height: 38px;
+            border: 2px solid #333;
+            border-radius: 6px;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 2px;
+            padding: 2px;
+            background: #eee;
+            min-width: 0;
+        }
+
+        .vol-seg {
+            background: #ccc;
+            border-radius: 2px;
+        }
+
+        .vol-seg.active {
+            background: #2ecc71;
+        }
+
+        .fx-section {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .echo-master-control,
+        .audio-excite-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+        }
+
+        .fx-strip {
+            width: 100%;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: center;
+            gap: 14px;
+        }
+
+        .fx-controls {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            min-width: 0;
+        }
+
+        .echo-master-label {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .audio-excite-label {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .echo-master-switch,
+        .audio-excite-switch {
+            position: relative;
+            width: 54px;
+            height: 30px;
+            display: inline-block;
+        }
+
+        .echo-master-switch input,
+        .audio-excite-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .echo-master-slider,
+        .audio-excite-slider {
+            position: absolute;
+            inset: 0;
+            background: #bbb;
+            border: 2px solid #333;
+            border-radius: 999px;
+            transition: 0.2s;
+        }
+
+        .echo-master-slider::before,
+        .audio-excite-slider::before {
+            content: "";
+            position: absolute;
+            height: 22px;
+            width: 22px;
+            left: 2px;
+            top: 2px;
+            background: #fff;
+            border-radius: 50%;
+            transition: 0.2s;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        }
+
+        .echo-master-switch input:checked + .echo-master-slider,
+        .audio-excite-switch input:checked + .audio-excite-slider {
+            background: #2ecc71;
+        }
+
+        .echo-master-switch input:checked + .echo-master-slider::before,
+        .audio-excite-switch input:checked + .audio-excite-slider::before {
+            transform: translateX(24px);
+        }
+
+        .vol-number {
+            width: 60px;
+            height: 38px;
+            border: 2px solid #333;
+            border-radius: 6px;
+            font-size: 20px;
+            font-weight: bold;
+            text-align: center;
+            box-sizing: border-box;
+            padding: 0;
+            line-height: 34px;
+            appearance: textfield;
+            -moz-appearance: textfield;
+            background: #f7f7f7;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .vol-number::-webkit-outer-spin-button,
+        .vol-number::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .echo-control {
+            display: grid;
+            grid-template-columns: 96px minmax(0, 1fr);
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .echo-label {
+            font-size: 22px;
+            font-weight: bold;
+            color: #333;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .echo-stepper {
+            display: grid;
+            grid-template-columns: 42px minmax(82px, 1fr) 42px;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .echo-btn {
+            width: 42px;
+            height: 42px;
+            border: 2px solid #333;
+            border-radius: 6px;
+            background: #f7f7f7;
+            color: #222;
+            font-size: 26px;
+            font-weight: bold;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .echo-btn:disabled {
+            background: #ddd;
+            color: #999;
+            border-color: #999;
+            cursor: not-allowed;
+        }
+
+        .echo-value {
+            width: 100%;
+            height: 42px;
+            border: 2px solid #333;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 22px;
+            font-weight: bold;
+            text-align: center;
+            line-height: 38px;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        @media (max-width: 700px) {
+            .vol-row {
+                grid-template-columns: 56px minmax(0, 1fr);
+            }
+
+            .fx-strip {
+                grid-template-columns: 1fr;
+            }
+
+            .fx-controls {
+                grid-template-columns: 1fr;
+            }
+
+            .echo-master-control,
+            .audio-excite-control {
+                justify-content: flex-start;
+            }
+
+            .echo-control {
+                grid-template-columns: auto minmax(0, 1fr);
+                max-width: none;
+                justify-self: stretch;
+            }
+
+            .echo-label {
+                font-size: 19px;
+                text-align: left;
+            }
+        }
+
+        /* ========== 修复EQ样式，刻度对齐、布局和参考图一致 ========== */
+        .eq-section {
+            margin-top: 10px;
+            margin-bottom: 35px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        .eq-panel-wrap {
+            background: #1a1a1a;
+            padding: 20px 10px;
+            border-radius: 12px;
+        }
+        .eq-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding: 0 10px;
+        }
+        .eq-panel-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .eq-panel-title {
+            color: #e74c3c;
+            font-size: 26px;
+            font-weight: bold;
+        }
+        .eq-preset-btn,
+        .eq-reset-btn {
+            flex: 0 0 auto;
+            padding: 8px 14px;
+            border: 1px solid #777;
+            border-radius: 5px;
+            background: #333;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .eq-preset-btn:hover,
+        .eq-reset-btn:hover {
+            background: #555;
+        }
+        .eq-preset-btn.active {
+            background: #e74c3c;
+            border-color: #ff8a80;
+            box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.3);
+        }
+        .eq-preset-btn:disabled,
+        .eq-reset-btn:disabled {
+            background: #2a2a2a;
+            color: #777;
+            border-color: #444;
+            cursor: not-allowed;
+        }
+        .eq-slider-row {
+            display: flex;
+            justify-content: space-around;
+            gap: 4px;
+        }
+        .eq-slider-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 52px;
+            gap:6px;
+        }
+        .eq-slider-track {
+            width: 6px;
+            height: 220px;
+            background: #444;
+            position: relative;
+            margin: 0;
+        }
+        /* 刻度精准定位：顶部+12，中间0，底部-12 */
+        .eq-slider-track::before {
+            content: "";
+            position: absolute;
+            left: -12px;
+            width: 12px;
+            height: 1px;
+            background: #999;
+            top: 0px;
+        }
+        .eq-slider-track::after {
+            content: "";
+            position: absolute;
+            left: -12px;
+            width: 12px;
+            height: 1px;
+            background: #999;
+            top: 110px;
+        }
+        .eq-slider-track .mark-neg {
+            position: absolute;
+            left: -12px;
+            width: 12px;
+            height: 1px;
+            background: #999;
+            top: 220px;
+        }
+        .eq-slider-knob {
+            width: 18px;
+            height: 18px;
+            background: #4285f4;
+            border-radius: 50%;
+            position: absolute;
+            left: -6px;
+            transform: translateY(-50%);
+            cursor: pointer;
+        }
+        .eq-btn-up, .eq-btn-down {
+            width: 32px;
+            height: 32px;
+            font-size: 18px;
+            border: none;
+            background: #555;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .eq-btn-up:disabled, .eq-btn-down:disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
+        .eq-freq-label {
+            color: #ddd;
+            font-size: 13px;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .eq-db-value {
+            color: #fff;
+            font-size: 14px;
+            height: 20px;
+        }
+
+        .freq-section {
+            margin-bottom: 30px;
+        }
+
+        .freq-title {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .freq-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .freq-item {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+        }
+
+        .freq-value {
+            flex: 1;
+            height: 48px;
+            border: 2px solid #333;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            font-weight: bold;
+            min-width: 120px;
+        }
+
+        .freq-label-below {
+            position: absolute;
+            bottom: -30px;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        /* ========== Toast 自动消失提示 ========== */
+        .toast {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2ecc71;
+            color: #fff;
+            padding: 16px 36px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 9999;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            animation: toastIn 0.35s ease, toastOut 0.35s ease 1.65s forwards;
+            pointer-events: none;
+        }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        @keyframes toastOut {
+            from { opacity: 1; }
+            to   { opacity: 0; }
+        }
+    </style>
+
+</head>
+<body>
+
+    <div class="master">
+        <div class="master-title">主机</div>
+        <div class="ports-container">
+            <div class="port">
+                <div class="port-box" id="portA"></div>
+                <div class="port-label">发射A</div>
+            </div>
+            <div class="port">
+                <div class="port-box" id="portB"></div>
+                <div class="port-label">发射B</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="volume-group">
+        <div class="vol-row">
+            <div class="vol-tag">音量A</div>
+            <div class="vol-control">
+                <div class="vol-bar" id="volBarA">
+                    <div class="vol-seg"></div><div class="vol-seg"></div><div class="vol-seg"></div><div class="vol-seg"></div>
+                    <div class="vol-seg"></div><div class="vol-seg"></div><div class="vol-seg"></div><div class="vol-seg"></div>
+                </div>
+                <input class="vol-number" id="volInputA" type="number" min="0" max="31" step="1" value="0" readonly>
+            </div>
+        </div>
+        <div class="vol-row">
+            <div class="vol-tag">音量B</div>
+            <div class="vol-control">
+                <div class="vol-bar" id="volBarB">
+                    <div class="vol-seg"></div><div class="vol-seg"></div><div class="vol-seg"></div><div class="vol-seg"></div>
+                    <div class="vol-seg"></div><div class="vol-seg"></div><div class="vol-seg"></div><div class="vol-seg"></div>
+                </div>
+                <input class="vol-number" id="volInputB" type="number" min="0" max="31" step="1" value="0" readonly>
+            </div>
+        </div>
+    </div>
+
+    <div class="fx-section">
+        <div class="fx-strip">
+            <div class="audio-excite-control">
+                <div class="audio-excite-label">音频激励</div>
+                <label class="audio-excite-switch" title="音频激励开关">
+                    <input type="checkbox" id="audioExciteToggle">
+                    <span class="audio-excite-slider"></span>
+                </label>
+            </div>
+            <div class="fx-controls">
+                <div class="echo-control">
+                    <div class="echo-label">奇次激励</div>
+                    <div class="echo-stepper">
+                        <button class="echo-btn" id="exciterOddMinus" type="button">-</button>
+                        <input class="echo-value" id="exciterOddInput" type="text" value="0" readonly>
+                        <button class="echo-btn" id="exciterOddPlus" type="button">+</button>
+                    </div>
+                </div>
+                <div class="echo-control">
+                    <div class="echo-label">偶次激励</div>
+                    <div class="echo-stepper">
+                        <button class="echo-btn" id="exciterEvenMinus" type="button">-</button>
+                        <input class="echo-value" id="exciterEvenInput" type="text" value="0" readonly>
+                        <button class="echo-btn" id="exciterEvenPlus" type="button">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="fx-strip">
+            <div class="echo-master-control">
+                <div class="echo-master-label">Echo</div>
+                <label class="echo-master-switch" title="Echo总开关">
+                    <input type="checkbox" id="echoToggle">
+                    <span class="echo-master-slider"></span>
+                </label>
+            </div>
+            <div class="fx-controls">
+                <div class="echo-control">
+                    <div class="echo-label">Echo反馈</div>
+                    <div class="echo-stepper">
+                        <button class="echo-btn" id="echoFeedbackMinus" type="button">-</button>
+                        <input class="echo-value" id="echoFeedbackInput" type="text" value="0" readonly>
+                        <button class="echo-btn" id="echoFeedbackPlus" type="button">+</button>
+                    </div>
+                </div>
+                <div class="echo-control">
+                    <div class="echo-label">Echo延时</div>
+                    <div class="echo-stepper">
+                        <button class="echo-btn" id="echoDelayMinus" type="button">-</button>
+                        <input class="echo-value" id="echoDelayInput" type="text" value="22ms" readonly>
+                        <button class="echo-btn" id="echoDelayPlus" type="button">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="freq-section">
+        <div class="freq-title">频率</div>
+        <div class="freq-container">
+            <div class="freq-item">
+                <div class="freq-value" id="freqA">--- MHz</div>
+                <div class="freq-label-below">发射A</div>
+            </div>
+            <div class="freq-item">
+                <div class="freq-value" id="freqB">--- MHz</div>
+                <div class="freq-label-below">发射B</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== KT0656M 15段EQ推子面板 ========== -->
+    <div class="eq-section">
+        <div class="eq-panel-wrap">
+            <div class="eq-panel-header">
+                <div class="eq-panel-title">EQ</div>
+                <div class="eq-panel-actions">
+                    <button class="eq-preset-btn" id="eqPreset1Btn" type="button"
+                        title="加载默认一">默认一</button>
+                    <button class="eq-preset-btn" id="eqPreset2Btn" type="button"
+                        title="加载默认二">默认二</button>
+                    <button class="eq-preset-btn" id="eqPreset3Btn" type="button"
+                        title="加载默认三">默认三</button>
+                    <button class="eq-reset-btn" id="eqResetBtn" type="button">重置 EQ</button>
+                </div>
+            </div>
+            <div class="eq-slider-row" id="eqARow"></div>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="control-btn connect-btn" id="bleConnectBtn">蓝牙未连接，请连接蓝牙主机</button>
+        <button class="control-btn sync-btn" id="bleSyncBtn" type="button">同步数据</button>
+        <button class="control-btn confirm-btn" id="bleConfirmBtn" type="button">确认下发</button>
+    </div>
+
+<script>
+    const portA = document.getElementById('portA');
+    const portB = document.getElementById('portB');
+    let slaveA_status = 0;
+    let slaveB_status = 0;
+    let currentServer = null;
+    let bleChar1 = null;   // CHAR1 (0xFFE1): 写命令 (EQ/音效)
+    let bleChar4 = null;   // CHAR4 (0xFFE4): 收通知
+
+    // ==================== EQ全局配置（15个频点，匹配 KT0656M） ====================
+    const eqFreqList = [
+        "25Hz", "40Hz", "63Hz", "100Hz", "160Hz", "250Hz", "400Hz",
+        "630Hz", "1KHz", "1.6KHz", "2.5KHz", "4KHz", "6.3KHz", "10KHz", "16KHz"
+    ];
+    const eqBandCount = 15;
+    const eqMin = -12;
+    const eqMax = 12;
+    const eqTrackHeight = 220; // 推子轨道总高度
+    const eqZeroTop = 110;     // 0dB刻度垂直位置
+    const EQ_PRESET_STORAGE_KEY = "bluetooth-control-eq-presets";
+
+    // EQ 初始数据数组（15个频段，默认0dB）
+    let eqA = new Array(eqBandCount).fill(0);
+    let eqPresets = loadEQPresets();
+    let currentEQPresetSlot = null;
+    // 缓存DOM元素
+    let eqADoms = []; // {upBtn, downBtn, dbText, knob}
+    const pendingParams = {
+        eq: new Array(eqBandCount).fill(false),
+        audioExcite: false,
+        echo: false,
+        exciterOdd: false,
+        exciterEven: false,
+        echoFeedback: false,
+        echoDelay: false
+    };
+    let syncFinishTimer = null;
+    let syncBatchMask = 0;
+    const SYNC_EXPECT_MASK = 0x1F;
+    const SYNC_TIMEOUT_MS = 5000;
+    let syncAckReceived = false;
+    function clearPendingParams() {
+        for (let i = 0; i < eqBandCount; i++) pendingParams.eq[i] = false;
+        pendingParams.audioExcite = false;
+        pendingParams.echo = false;
+        pendingParams.exciterOdd = false;
+        pendingParams.exciterEven = false;
+        pendingParams.echoFeedback = false;
+        pendingParams.echoDelay = false;
+    }
+
+    // 动态生成EQ滑块面板（修复：生成后强制刷新0dB居中）
+    function createEQPanel(containerId, devId, dataArr, domCache) {
+        const wrap = document.getElementById(containerId);
+        wrap.innerHTML = "";
+        domCache.length = 0;
+        for(let i=0; i<eqBandCount; i++){
+            const col = document.createElement("div");
+            col.className = "eq-slider-col";
+
+            // 1.顶部 +按钮
+            const btnUp = document.createElement("button");
+            btnUp.className = "eq-btn-up";
+            btnUp.textContent = "+";
+            btnUp.disabled = true;
+
+            // 2.滑动轨道
+            const track = document.createElement("div");
+            track.className = "eq-slider-track";
+            const markNeg = document.createElement("div");
+            markNeg.className = "mark-neg";
+            track.appendChild(markNeg);
+            // 滑块旋钮
+            const knob = document.createElement("div");
+            knob.className = "eq-slider-knob";
+            track.appendChild(knob);
+
+            // 3.dB数值文字
+            const dbText = document.createElement("div");
+            dbText.className = "eq-db-value";
+            dbText.textContent = "0dB";
+
+            // 4.底部 -按钮
+            const btnDown = document.createElement("button");
+            btnDown.className = "eq-btn-down";
+            btnDown.textContent = "-";
+            btnDown.disabled = true;
+
+            // 5.最底部频率标签
+            const label = document.createElement("div");
+            label.className = "eq-freq-label";
+            label.textContent = eqFreqList[i];
+
+            // 按参考图顺序拼接DOM：+ → 轨道 → dB文字 → - → 频标
+            col.appendChild(btnUp);
+            col.appendChild(track);
+            col.appendChild(dbText);
+            col.appendChild(btnDown);
+            col.appendChild(label);
+            wrap.appendChild(col);
+
+            // 缓存DOM引用
+            domCache.push({upBtn: btnUp, downBtn: btnDown, dbText, knob});
+
+            // 加减按钮点击事件
+            btnUp.onclick = ()=>{
+                if(dataArr[i] < eqMax) {
+                    dataArr[i] += 1;
+                    updateSingleEQ(devId, i, dataArr[i], domCache[i]);
+                }
+            };
+            btnDown.onclick = ()=>{
+                if(dataArr[i] > eqMin) {
+                    dataArr[i] -= 1;
+                    updateSingleEQ(devId, i, dataArr[i], domCache[i]);
+                }
+            };
+
+            // 鼠标拖动旋钮逻辑
+            let drag = false;
+            knob.onmousedown = (e)=>{
+                drag = true;
+                document.addEventListener("mousemove", move);
+                document.addEventListener("mouseup", stopDrag);
+            };
+            function move(e){
+                if(!drag) return;
+                const rect = track.getBoundingClientRect();
+                let y = e.clientY - rect.top;
+                // 换算dB值：top=0 → +12，top=220 → -12
+                let db = Math.round(eqMax - (y / eqTrackHeight) * (eqMax - eqMin));
+                db = Math.max(eqMin, Math.min(eqMax, db));
+                if(dataArr[i] !== db){
+                    dataArr[i] = db;
+                    updateSingleEQ(devId, i, db, domCache[i]);
+                }
+            }
+            function stopDrag(){
+                drag = false;
+                document.removeEventListener("mousemove", move);
+                document.removeEventListener("mouseup", stopDrag);
+            }
+        }
+        // 创建面板后，统一渲染所有滑块到0dB中间位置(仅UI，不发BLE)
+        for(let i=0; i<eqBandCount; i++){
+            refreshSingleEQ_UI(dataArr[i], domCache[i]);
+        }
+    }
+
+    // 仅刷新EQ UI (不发送蓝牙，用于接收同步数据时)
+    function refreshSingleEQ_UI(val, domItem){
+        domItem.dbText.textContent = val + "dB";
+        const offsetTop = (eqMax - val) * (eqTrackHeight / (eqMax - eqMin));
+        domItem.knob.style.top = offsetTop + "px";
+    }
+
+    // 更新单个频段UI，并标记为待下发
+    function updateSingleEQ(dev, idx, val, domItem){
+        refreshSingleEQ_UI(val, domItem);
+        pendingParams.eq[idx] = true;
+    }
+
+    function loadEQPresets(){
+        const emptyPresets = {
+            preset1: new Array(eqBandCount).fill(0),
+            preset2: new Array(eqBandCount).fill(0),
+            preset3: new Array(eqBandCount).fill(0)
+        };
+
+        try {
+            const stored = JSON.parse(localStorage.getItem(EQ_PRESET_STORAGE_KEY) || "null");
+            if (!stored || typeof stored !== "object") return emptyPresets;
+
+            return {
+                preset1: normalizeEQPreset(stored.preset1, emptyPresets.preset1),
+                preset2: normalizeEQPreset(stored.preset2, emptyPresets.preset2),
+                preset3: normalizeEQPreset(stored.preset3, emptyPresets.preset3)
+            };
+        } catch (error) {
+            console.warn("读取EQ预设失败，使用空预设", error);
+            return emptyPresets;
+        }
+    }
+
+    function normalizeEQPreset(values, fallback){
+        if (!Array.isArray(values) || values.length !== eqBandCount) return fallback.slice();
+        return values.map(value => {
+            const number = Number(value);
+            if (!Number.isFinite(number)) return 0;
+            return Math.max(eqMin, Math.min(eqMax, Math.round(number)));
+        });
+    }
+
+    function getEQPresetLabel(slot){
+        return {
+            preset1: "默认一",
+            preset2: "默认二",
+            preset3: "默认三"
+        }[slot] || slot;
+    }
+
+    function saveEQPreset(slot, notify = true){
+        eqPresets[slot] = eqA.slice();
+        try {
+            localStorage.setItem(EQ_PRESET_STORAGE_KEY, JSON.stringify(eqPresets));
+            if (notify) {
+                showToast(`✅ 当前EQ已保存到${getEQPresetLabel(slot)}`);
+            }
+            return true;
+        } catch (error) {
+            if (notify) {
+                showToast("⚠️ EQ预设保存失败");
+            }
+            console.warn("保存EQ预设失败", error);
+            return false;
+        }
+    }
+
+    function setActiveEQPreset(slot){
+        currentEQPresetSlot = slot;
+        const buttons = {
+            preset1: eqPreset1Btn,
+            preset2: eqPreset2Btn,
+            preset3: eqPreset3Btn
+        };
+        Object.entries(buttons).forEach(([buttonSlot, button]) => {
+            const active = buttonSlot === slot;
+            button.classList.toggle("active", active);
+            button.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+    }
+
+    function applyEQPreset(slot){
+        setActiveEQPreset(slot);
+        const preset = eqPresets[slot];
+        for(let i = 0; i < eqBandCount; i++){
+            eqA[i] = preset[i];
+            updateSingleEQ(0x01, i, eqA[i], eqADoms[i]);
+        }
+        updateActionButtons();
+        showToast(`✅ 已加载${getEQPresetLabel(slot)}，请点击“确认下发”`);
+    }
+
+    function bindEQPresetButton(button, slot){
+        button.setAttribute("aria-pressed", "false");
+        button.onclick = ()=>applyEQPreset(slot);
+    }
+
+    // 将EQ重置为0dB，仅修改本地界面并标记为待下发
+    function resetEQ(){
+        for(let i = 0; i < eqBandCount; i++){
+            eqA[i] = 0;
+            updateSingleEQ(0x01, i, 0, eqADoms[i]);
+        }
+        updateActionButtons();
+        showToast("✅ EQ已重置为0dB，请点击“确认下发”");
+    }
+
+    // 设置EQ整组按钮启用/禁用
+    function setEQEnabled(domCache, enable){
+        domCache.forEach(item=>{
+            item.upBtn.disabled = !enable;
+            item.downBtn.disabled = !enable;
+        })
+    }
+
+    // 初始化EQ面板
+    createEQPanel("eqARow", 0x01, eqA, eqADoms);
+
+    // ========== 启用逻辑：仅控制EQ推子按钮 ==========
+    function setEnabledA(enabled) {
+        setEQEnabled(eqADoms, enabled);
+        setFxEnabled(enabled);
+    }
+
+    function onBluetoothDisconnected() {
+        if (bleChar4) {
+            bleChar4.removeEventListener('characteristicvaluechanged', onNotification);
+        }
+        clearSyncFinishTimer();
+        resetBleWriteQueue();
+        portA.classList.remove('connected');
+        portB.classList.remove('connected');
+        slaveA_status = 0;
+        slaveB_status = 0;
+        isConnectingBLE = false;
+        isApplyingParams = false;
+        isSyncingData = false;
+        setEnabledA(false);
+        currentServer = null;
+        bleChar1 = null;
+        bleChar4 = null;
+        setButtonWorking(bleConnectBtn, false);
+        setButtonWorking(bleSyncBtn, false);
+        setButtonWorking(bleConfirmBtn, false);
+
+        // 恢复所有UI到初始状态
+        volA = 0; updateVolA();
+        volB = 0; updateVolB();
+        audioExciteEnabled = false; updateAudioExciteUI();
+        echoEnabled = false; updateEchoMasterUI();
+        exciterOdd = 0; updateExciterOddUI();
+        exciterEven = 0; updateExciterEvenUI();
+        echoFeedback = 0; updateEchoFeedbackUI();
+        echoDelayIndex = 0; updateEchoDelayUI();
+        freqA = 0; updateFreqA();
+        freqB = 0; updateFreqB();
+        for (let i = 0; i < eqBandCount; i++) {
+            eqA[i] = 0;
+            pendingParams.eq[i] = false;
+            refreshSingleEQ_UI(0, eqADoms[i]);
+        }
+        pendingParams.audioExcite = false;
+        pendingParams.echo = false;
+        pendingParams.exciterOdd = false;
+        pendingParams.exciterEven = false;
+        pendingParams.echoFeedback = false;
+        pendingParams.echoDelay = false;
+
+        updateBleConnectButton("蓝牙未连接，请连接蓝牙主机");
+        updateActionButtons();
+        showToast("⚠️ 蓝牙已断开，请手动重新连接");
+    }
+
+    // ====================== 音量控制（32档：0~31，8格显示）======================
+    let volA = 0;
+    const volInputA = document.getElementById('volInputA');
+    const volBarA = document.getElementById('volBarA');
+    const volSegsA = volBarA.querySelectorAll('.vol-seg');
+    let volB = 0;
+    const volInputB = document.getElementById('volInputB');
+    const volBarB = document.getElementById('volBarB');
+    const volSegsB = volBarB.querySelectorAll('.vol-seg');
+    const audioExciteToggle = document.getElementById('audioExciteToggle');
+    let audioExciteEnabled = false;
+    const echoToggle = document.getElementById('echoToggle');
+    let echoEnabled = false;
+    const echoFeedbackInput = document.getElementById('echoFeedbackInput');
+    const echoDelayInput = document.getElementById('echoDelayInput');
+    const echoFeedbackMinus = document.getElementById('echoFeedbackMinus');
+    const echoFeedbackPlus = document.getElementById('echoFeedbackPlus');
+    const echoDelayMinus = document.getElementById('echoDelayMinus');
+    const echoDelayPlus = document.getElementById('echoDelayPlus');
+    const exciterOddInput = document.getElementById('exciterOddInput');
+    const exciterOddMinus = document.getElementById('exciterOddMinus');
+    const exciterOddPlus = document.getElementById('exciterOddPlus');
+    const exciterEvenInput = document.getElementById('exciterEvenInput');
+    const exciterEvenMinus = document.getElementById('exciterEvenMinus');
+    const exciterEvenPlus = document.getElementById('exciterEvenPlus');
+    const echoDelayList = [
+        22, 24, 27, 29, 32, 35, 39, 43,
+        47, 52, 57, 63, 69, 76, 84, 92,
+        101, 111, 122, 135, 148, 163, 179, 197
+    ];
+    let exciterOdd = 0;
+    let exciterEven = 0;
+    let echoFeedback = 0;
+    let echoDelayIndex = 0;
+
+    function clampVol(val) {
+        val = Number.parseInt(val, 10);
+        if (Number.isNaN(val)) return 0;
+        return Math.max(0, Math.min(31, val));
+    }
+
+    function setVolEnabledA(enabled) {
+        volInputA.disabled = false;
+    }
+
+    function updateVolA() {
+        const val = clampVol(volA);
+        volInputA.value = val;
+        const activeCount = val === 0 ? 0 : Math.min(8, Math.ceil(val / 4));
+        volSegsA.forEach((seg, i) => seg.classList.toggle("active", i < activeCount));
+    }
+
+    function updateVolB() {
+        const val = clampVol(volB);
+        volInputB.value = val;
+        const activeCount = val === 0 ? 0 : Math.min(8, Math.ceil(val / 4));
+        volSegsB.forEach((seg, i) => seg.classList.toggle("active", i < activeCount));
+    }
+
+    updateVolA();
+    updateVolB();
+
+    function updateEchoMasterUI() {
+        echoToggle.checked = echoEnabled;
+    }
+
+    function updateAudioExciteUI() {
+        audioExciteToggle.checked = audioExciteEnabled;
+    }
+
+    audioExciteToggle.onchange = () => {
+        audioExciteEnabled = audioExciteToggle.checked;
+        pendingParams.audioExcite = true;
+        showToast(audioExciteEnabled ? "✅ 音频激励已开启" : "ℹ️ 音频激励已关闭");
+        updateAudioExciteUI();
+    };
+    updateAudioExciteUI();
+
+    echoToggle.onchange = () => {
+        echoEnabled = echoToggle.checked;
+        pendingParams.echo = true;
+        showToast(echoEnabled ? "✅ Echo已开启" : "ℹ️ Echo已关闭");
+        updateEchoMasterUI();
+    };
+    updateEchoMasterUI();
+
+    function clampExciterLevel(val) {
+        val = Number.parseInt(val, 10);
+        if (Number.isNaN(val)) return 0;
+        return Math.max(0, Math.min(6, val));
+    }
+
+    function updateExciterOddUI() {
+        exciterOdd = clampExciterLevel(exciterOdd);
+        exciterOddInput.value = exciterOdd;
+    }
+
+    function updateExciterEvenUI() {
+        exciterEven = clampExciterLevel(exciterEven);
+        exciterEvenInput.value = exciterEven;
+    }
+
+    function changeExciterOdd(step) {
+        const next = clampExciterLevel(exciterOdd + step);
+        if (next === exciterOdd) return;
+        exciterOdd = next;
+        pendingParams.exciterOdd = true;
+        updateExciterOddUI();
+    }
+
+    function changeExciterEven(step) {
+        const next = clampExciterLevel(exciterEven + step);
+        if (next === exciterEven) return;
+        exciterEven = next;
+        pendingParams.exciterEven = true;
+        updateExciterEvenUI();
+    }
+
+    function clampEchoFeedback(val) {
+        val = Number.parseInt(val, 10);
+        if (Number.isNaN(val)) return 0;
+        return Math.max(0, Math.min(25, val));
+    }
+
+    function clampEchoDelayIndex(val) {
+        val = Number.parseInt(val, 10);
+        if (Number.isNaN(val)) return 0;
+        return Math.max(0, Math.min(echoDelayList.length - 1, val));
+    }
+
+    function setEchoEnabled(enabled) {
+        echoFeedbackMinus.disabled = !enabled;
+        echoFeedbackPlus.disabled = !enabled;
+        echoDelayMinus.disabled = !enabled;
+        echoDelayPlus.disabled = !enabled;
+    }
+
+    function setFxEnabled(enabled) {
+        audioExciteToggle.disabled = !enabled;
+        echoToggle.disabled = !enabled;
+        exciterOddMinus.disabled = !enabled;
+        exciterOddPlus.disabled = !enabled;
+        exciterEvenMinus.disabled = !enabled;
+        exciterEvenPlus.disabled = !enabled;
+        setEchoEnabled(enabled);
+    }
+
+    function updateEchoFeedbackUI() {
+        echoFeedback = clampEchoFeedback(echoFeedback);
+        echoFeedbackInput.value = echoFeedback;
+    }
+
+    function updateEchoDelayUI() {
+        echoDelayIndex = clampEchoDelayIndex(echoDelayIndex);
+        echoDelayInput.value = echoDelayList[echoDelayIndex] + "ms";
+    }
+
+    function changeEchoFeedback(step) {
+        const next = clampEchoFeedback(echoFeedback + step);
+        if (next === echoFeedback) return;
+        echoFeedback = next;
+        pendingParams.echoFeedback = true;
+        updateEchoFeedbackUI();
+    }
+
+    function changeEchoDelay(step) {
+        const next = clampEchoDelayIndex(echoDelayIndex + step);
+        if (next === echoDelayIndex) return;
+        echoDelayIndex = next;
+        pendingParams.echoDelay = true;
+        updateEchoDelayUI();
+    }
+
+    echoFeedbackMinus.onclick = () => changeEchoFeedback(-1);
+    echoFeedbackPlus.onclick = () => changeEchoFeedback(1);
+    echoDelayMinus.onclick = () => changeEchoDelay(-1);
+    echoDelayPlus.onclick = () => changeEchoDelay(1);
+    exciterOddMinus.onclick = () => changeExciterOdd(-1);
+    exciterOddPlus.onclick = () => changeExciterOdd(1);
+    exciterEvenMinus.onclick = () => changeExciterEven(-1);
+    exciterEvenPlus.onclick = () => changeExciterEven(1);
+    updateExciterOddUI();
+    updateExciterEvenUI();
+    updateEchoFeedbackUI();
+    updateEchoDelayUI();
+    setFxEnabled(false);
+
+    // ====================== 频率显示（只读，通过通知同步）======================
+    let freqA = 0;
+    let freqB = 0;
+    function fmtMHz(khz){return khz?(khz/1000).toFixed(2)+" MHz":"--- MHz";}
+    function updateFreqA(){document.getElementById('freqA').textContent=fmtMHz(freqA);}
+    function updateFreqB(){document.getElementById('freqB').textContent=fmtMHz(freqB);}
+
+    // ====================== 蓝牙发送 (串行写入) ======================
+    const BLE_WRITE_GAP_MS = 35;
+    let bleWriteQueue = Promise.resolve();
+    let lastBleWriteAt = 0;
+    let bleSessionId = 0;
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function resetBleWriteQueue() {
+        bleSessionId++;
+        bleWriteQueue = Promise.resolve();
+        lastBleWriteAt = 0;
+    }
+
+    async function writeBleBytes(bytes, errorLabel, sessionId) {
+        if (sessionId !== bleSessionId) return false;
+        if (!bleChar1 || !bleDevice || !bleDevice.gatt || !bleDevice.gatt.connected) return false;
+
+        try {
+            const waitMs = BLE_WRITE_GAP_MS - (Date.now() - lastBleWriteAt);
+            if (waitMs > 0) await sleep(waitMs);
+            if (sessionId !== bleSessionId || !bleChar1) return false;
+
+            if (bleChar1.properties && bleChar1.properties.writeWithoutResponse && bleChar1.writeValueWithoutResponse) {
+                await bleChar1.writeValueWithoutResponse(bytes);
+            } else if (bleChar1.writeValueWithResponse) {
+                await bleChar1.writeValueWithResponse(bytes);
+            } else {
+                await bleChar1.writeValue(bytes);
+            }
+            lastBleWriteAt = Date.now();
+            return true;
+        } catch(e) {
+            console.error(errorLabel + "发送失败", e);
+            showToast("❌ " + errorLabel + "发送失败，连接可能不稳定");
+            return false;
+        }
+    }
+
+    function writeCommand(cmd, val, errorLabel) {
+        const bytes = new Uint8Array([cmd, val]);
+        const sessionId = bleSessionId;
+        bleWriteQueue = bleWriteQueue
+            .catch(() => {})
+            .then(() => writeBleBytes(bytes, errorLabel, sessionId));
+        return bleWriteQueue;
+    }
+
+    function sendEq(index, val) {
+        return writeCommand(0xB0 + index, val + 12, "EQ");
+    }
+
+    function sendEchoEnable(enabled) {
+        return writeCommand(0xC0, enabled ? 1 : 0, "Echo总开关");
+    }
+
+    function sendEchoFeedback(val) {
+        return writeCommand(0xC1, clampEchoFeedback(val), "Echo反馈");
+    }
+
+    function sendEchoDelay(index) {
+        return writeCommand(0xC2, clampEchoDelayIndex(index), "Echo延时");
+    }
+
+    function sendExciterEnable(enabled) {
+        return writeCommand(0xE0, enabled ? 1 : 0, "音频激励");
+    }
+
+    function sendExciterOdd(val) {
+        return writeCommand(0xE1, clampExciterLevel(val), "奇次激励");
+    }
+
+    function sendExciterEven(val) {
+        return writeCommand(0xE2, clampExciterLevel(val), "偶次激励");
+    }
+
+    async function applyPendingParams() {
+        if (!bleChar1 || !bleDevice || !bleDevice.gatt || !bleDevice.gatt.connected) {
+            showToast("请先连接蓝牙主机");
+            return;
+        }
+
+        if (isApplyingParams) return;
+
+        if (currentEQPresetSlot) {
+            saveEQPreset(currentEQPresetSlot, false);
+        }
+
+        const hasPending =
+            pendingParams.eq.some(Boolean) ||
+            pendingParams.audioExcite ||
+            pendingParams.echo ||
+            pendingParams.exciterOdd ||
+            pendingParams.exciterEven ||
+            pendingParams.echoFeedback ||
+            pendingParams.echoDelay;
+
+        if (!hasPending) {
+            showToast("ℹ️ 没有待下发参数");
+            return;
+        }
+
+        isApplyingParams = true;
+        updateActionButtons();
+
+        try {
+            await writeCommand(0xF0, 1, "参数下发开始");
+            let allOk = true;
+            for (let i = 0; i < eqBandCount; i++) {
+                if (!pendingParams.eq[i]) continue;
+                if (await sendEq(i, eqA[i])) {
+                    pendingParams.eq[i] = false;
+                } else {
+                    allOk = false;
+                }
+            }
+            if (pendingParams.echo) {
+                if (await sendEchoEnable(echoEnabled)) {
+                    pendingParams.echo = false;
+                } else {
+                    allOk = false;
+                }
+            }
+            if (pendingParams.audioExcite) {
+                if (await sendExciterEnable(audioExciteEnabled)) {
+                    pendingParams.audioExcite = false;
+                } else {
+                    allOk = false;
+                }
+            }
+            if (pendingParams.exciterOdd) {
+                if (await sendExciterOdd(exciterOdd)) {
+                    pendingParams.exciterOdd = false;
+                } else {
+                    allOk = false;
+                }
+            }
+            if (pendingParams.exciterEven) {
+                if (await sendExciterEven(exciterEven)) {
+                    pendingParams.exciterEven = false;
+                } else {
+                    allOk = false;
+                }
+            }
+            if (pendingParams.echoFeedback) {
+                if (await sendEchoFeedback(echoFeedback)) {
+                    pendingParams.echoFeedback = false;
+                } else {
+                    allOk = false;
+                }
+            }
+            if (pendingParams.echoDelay) {
+                if (await sendEchoDelay(echoDelayIndex)) {
+                    pendingParams.echoDelay = false;
+                } else {
+                    allOk = false;
+                }
+            }
+            await writeCommand(0xF0, 0, "参数下发结束");
+            showToast(allOk ? "✅ 参数已确认下发" : "⚠️ 已尝试下发参数，部分失败");
+        } finally {
+            isApplyingParams = false;
+            updateActionButtons();
+        }
+    }
+
+    // ====================== Toast 提示（2秒自动消失） ======================
+    function showToast(msg) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 2000);
+    }
+
+    // ====================== 通知处理 (命名函数, 用于重连绑定) ======================
+    function clearSyncFinishTimer() {
+        if (syncFinishTimer) {
+            clearTimeout(syncFinishTimer);
+            syncFinishTimer = null;
+        }
+    }
+
+    function armSyncFinishTimer() {
+        if (!isSyncingData) return;
+        clearSyncFinishTimer();
+        syncFinishTimer = setTimeout(finishSyncingDataWithTimeout, SYNC_TIMEOUT_MS);
+    }
+
+    function finishSyncingData() {
+        if (!isSyncingData) return;
+        clearSyncFinishTimer();
+        isSyncingData = false;
+        syncBatchMask = 0;
+        syncAckReceived = false;
+        clearPendingParams();
+        updateActionButtons();
+        showToast("✅ 数据同步完成");
+    }
+
+    function finishSyncingDataWithTimeout() {
+        if (!isSyncingData) return;
+        clearSyncFinishTimer();
+        if (syncBatchMask === SYNC_EXPECT_MASK) {
+            finishSyncingData();
+            return;
+        }
+        const receivedMask = syncBatchMask;
+        const ackReceived = syncAckReceived;
+        isSyncingData = false;
+        syncBatchMask = 0;
+        syncAckReceived = false;
+        clearPendingParams();
+        updateActionButtons();
+        console.warn("同步数据不完整", {
+            receivedMask: "0x" + receivedMask.toString(16).padStart(2, "0"),
+            expectedMask: "0x" + SYNC_EXPECT_MASK.toString(16),
+            ackReceived
+        });
+        showToast("⚠️ 同步数据不完整，请重试");
+    }
+
+    function onNotification(e) {
+        const dv = e.target.value;
+        let data = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+        if (data.length < 2) return;
+
+        let tag = data[0];
+
+        // Ignore ASCII text messages (like "PC CONNECTED")
+        if (tag >= 0x20 && tag <= 0x7E) return;
+
+        // ===== 分批同步数据 =====
+        // 帧0: A 状态/音量/频率
+        // 帧1: Echo 和激励参数
+        // 帧2~4: 15 个 EQ，每帧 5 个
+        // 帧5: B 状态/音量/频率
+        if (tag === 0xF3) {
+            const frame = data[1];
+            let accepted = false;
+
+            // Frame 0: A and B status/volume/frequency.
+            if (frame === 0 && data.length >= 7) {
+                const freq = (data[4] << 16) | (data[5] << 8) | data[6];
+                slaveA_status = data[2];
+                portA.classList.toggle('connected', slaveA_status === 1);
+                volA = clampVol(data[3]);
+                freqA = freq;
+                updateVolA();
+                updateFreqA();
+                if (data.length >= 12) {
+                    const freqB0 = (data[9] << 16) | (data[10] << 8) | data[11];
+                    slaveB_status = data[7];
+                    portB.classList.toggle('connected', slaveB_status === 1);
+                    volB = clampVol(data[8]);
+                    freqB = freqB0;
+                    updateVolB();
+                    updateFreqB();
+                }
+                if (isSyncingData) syncBatchMask |= 0x01;
+                accepted = true;
+            // Frame 1: shared Echo and exciter.
+            } else if (frame === 1 && data.length >= 8) {
+                if (!pendingParams.echo || isSyncingData) { echoEnabled = data[2] !== 0; updateEchoMasterUI(); }
+                if (!pendingParams.echoFeedback || isSyncingData) { echoFeedback = clampEchoFeedback(data[3]); updateEchoFeedbackUI(); }
+                if (!pendingParams.echoDelay || isSyncingData) { echoDelayIndex = clampEchoDelayIndex(data[4]); updateEchoDelayUI(); }
+                if (!pendingParams.audioExcite || isSyncingData) { audioExciteEnabled = data[5] !== 0; updateAudioExciteUI(); }
+                if (!pendingParams.exciterOdd || isSyncingData) { exciterOdd = clampExciterLevel(data[6]); updateExciterOddUI(); }
+                if (!pendingParams.exciterEven || isSyncingData) { exciterEven = clampExciterLevel(data[7]); updateExciterEvenUI(); }
+                if (isSyncingData) syncBatchMask |= 0x02;
+                accepted = true;
+            // Frames 2..4: five EQ bands per frame.
+            } else if (frame >= 2 && frame <= 4 && data.length >= 7) {
+                const startBand = (frame - 2) * 5;
+                for (let i = 0; i < 5; i++) {
+                    const band = startBand + i;
+                    if (!pendingParams.eq[band] || isSyncingData) {
+                        eqA[band] = data[2 + i] - 12;
+                        refreshSingleEQ_UI(eqA[band], eqADoms[band]);
+                    }
+                }
+                if (isSyncingData) syncBatchMask |= (1 << frame);
+                accepted = true;
+            // Frame 5: B status/volume/frequency.
+            } else if (frame === 5 && data.length >= 7) {
+                const freq = (data[4] << 16) | (data[5] << 8) | data[6];
+                slaveB_status = data[2];
+                portB.classList.toggle('connected', slaveB_status === 1);
+                volB = clampVol(data[3]);
+                freqB = freq;
+                updateVolB();
+                updateFreqB();
+                if (isSyncingData) syncBatchMask |= 0x20;
+                accepted = true;
+            }
+
+            if (accepted && isSyncingData && syncBatchMask === SYNC_EXPECT_MASK) {
+                finishSyncingData();
+                return;
+            }
+            if (accepted && isSyncingData) armSyncFinishTimer();
+            return;
+        }        // ===== 连接状态 (兼容旧格式) =====
+        if (tag === 0x00 && data.length >= 3) {
+            slaveA_status = data[1];
+            portA.classList.toggle('connected', slaveA_status === 1);
+            updateVolA();
+            return;
+        }
+
+        // ===== 从机独立连接状态: [0x01/0x02, conn_state] =====
+        if (data.length === 2 && (data[0] === 0x01 || data[0] === 0x02) && data[1] <= 1) {
+            let sid = data[0], st = data[1];
+            if (sid === 0x01) { slaveA_status = st; portA.classList.toggle('connected', st===1); }
+            if (sid === 0x02) { slaveB_status = st; portB.classList.toggle('connected', st===1); }
+            updateVolA();
+            updateVolB();
+            return;
+        }
+
+        // ===== 音量同步 =====
+        if (tag === 0xA1 || tag === 0xA2) {
+            if (tag === 0xA1) { volA = data[1]; updateVolA(); }
+            else { volB = data[1]; updateVolB(); }
+            return;
+        }
+
+        // ===== Echo总开关同步: [0xC0, 0/1] =====
+        if (tag === 0xC0) {
+            if (pendingParams.echo && !isSyncingData) return;
+            echoEnabled = data[1] !== 0;
+            updateEchoMasterUI();
+            if (isSyncingData) {
+                pendingParams.echo = false;
+                armSyncFinishTimer();
+            }
+            return;
+        }
+
+        // ===== Echo反馈同步: [0xC1, 0~25] =====
+        if (tag === 0xC1) {
+            if (pendingParams.echoFeedback && !isSyncingData) return;
+            echoFeedback = data[1];
+            updateEchoFeedbackUI();
+            if (isSyncingData) {
+                pendingParams.echoFeedback = false;
+                armSyncFinishTimer();
+            }
+            return;
+        }
+
+        // ===== Echo延时同步: [0xC2, 0~23]，显示为毫秒 =====
+        if (tag === 0xC2) {
+            if (pendingParams.echoDelay && !isSyncingData) return;
+            echoDelayIndex = data[1];
+            updateEchoDelayUI();
+            if (isSyncingData) {
+                pendingParams.echoDelay = false;
+                armSyncFinishTimer();
+            }
+            return;
+        }
+
+        // ===== EQ 同步 =====
+        if ((tag & 0xF0) === 0xB0 && data.length >= 2) {
+            let idx = tag & 0x0F, val = data[1] - 12;
+            if (idx < eqBandCount) {
+                if (pendingParams.eq[idx] && !isSyncingData) return;
+                eqA[idx] = val;
+                refreshSingleEQ_UI(val, eqADoms[idx]);
+                if (isSyncingData) {
+                    pendingParams.eq[idx] = false;
+                    armSyncFinishTimer();
+                }
+            }
+            return;
+        }
+        // ===== 音频频率同步: 4字节kHz =====
+        if ((tag === 0xD1 || tag === 0xD2) && data.length >= 4) {
+            let freq = (data[1] << 16) | (data[2] << 8) | data[3];
+            if (tag === 0xD1) { freqA = freq; updateFreqA(); }
+            else { freqB = freq; updateFreqB(); }
+            if (isSyncingData) armSyncFinishTimer();
+            return;
+        }
+
+        // ===== 同步完成回执 =====
+        if (tag === 0xF2) {
+            syncAckReceived = true;
+            if (isSyncingData && syncBatchMask === SYNC_EXPECT_MASK) {
+                finishSyncingData();
+            } else if (isSyncingData) {
+                clearSyncFinishTimer();
+                syncFinishTimer = setTimeout(finishSyncingDataWithTimeout, SYNC_TIMEOUT_MS);
+            }
+            return;
+        }
+
+        // ===== 音频激励同步 =====
+        if (tag === 0xE0 && data.length === 2) {
+            if (pendingParams.audioExcite && !isSyncingData) return;
+            audioExciteEnabled = data[1] !== 0;
+            updateAudioExciteUI();
+            if (isSyncingData) {
+                pendingParams.audioExcite = false;
+                armSyncFinishTimer();
+            }
+            return;
+        }
+
+        if (tag === 0xE1 && data.length >= 2) {
+            if (pendingParams.exciterOdd && !isSyncingData) return;
+            exciterOdd = data[1];
+            updateExciterOddUI();
+            if (isSyncingData) {
+                pendingParams.exciterOdd = false;
+                armSyncFinishTimer();
+            }
+            return;
+        }
+
+        if (tag === 0xE2 && data.length >= 2) {
+            if (pendingParams.exciterEven && !isSyncingData) return;
+            exciterEven = data[1];
+            updateExciterEvenUI();
+            if (isSyncingData) {
+                armSyncFinishTimer();
+            }
+            return;
+        }
+
+        // ===== KT0656M 状态上报 =====
+        if (tag === 0xE0 && data.length >= 4) {
+            console.log("KT0656M [RSSI:"+data[1]+" SNR:"+data[2]+" PLL:"+data[3]+"]");
+            return;
+        }
+
+        console.log("Unhandled notify:", Array.from(data));
+    }
+
+    // ====================== 蓝牙连接 ======================
+    let bleDevice = null;
+    let isConnectingBLE = false;
+    let isApplyingParams = false;
+    let isSyncingData = false;
+
+    const bleConnectBtn = document.getElementById('bleConnectBtn');
+    const bleSyncBtn = document.getElementById('bleSyncBtn');
+    const bleConfirmBtn = document.getElementById('bleConfirmBtn');
+    const eqPreset1Btn = document.getElementById('eqPreset1Btn');
+    const eqPreset2Btn = document.getElementById('eqPreset2Btn');
+    const eqPreset3Btn = document.getElementById('eqPreset3Btn');
+    const eqResetBtn = document.getElementById('eqResetBtn');
+    bleConnectBtn.onclick = connectBLE;
+    bleSyncBtn.onclick = syncData;
+    bleConfirmBtn.onclick = applyPendingParams;
+    bindEQPresetButton(eqPreset1Btn, "preset1");
+    bindEQPresetButton(eqPreset2Btn, "preset2");
+    bindEQPresetButton(eqPreset3Btn, "preset3");
+    eqResetBtn.onclick = resetEQ;
+    updateActionButtons();
+
+    function updateBleConnectButton(label) {
+        bleConnectBtn.textContent = label || (bleDevice && bleDevice.gatt && bleDevice.gatt.connected ? "蓝牙已连接" : "蓝牙未连接，请连接蓝牙主机");
+        updateActionButtons();
+    }
+
+    function setButtonWorking(btn, working) {
+        btn.classList.toggle('working', !!working);
+    }
+
+    function updateActionButtons() {
+        const connected = !!(bleDevice && bleDevice.gatt && bleDevice.gatt.connected && bleChar1);
+        bleConnectBtn.disabled = isConnectingBLE;
+        bleSyncBtn.disabled = isConnectingBLE || isSyncingData || !connected;
+        bleConfirmBtn.disabled = isConnectingBLE || isApplyingParams || !connected;
+        eqPreset1Btn.disabled = isConnectingBLE || isApplyingParams || isSyncingData;
+        eqPreset2Btn.disabled = isConnectingBLE || isApplyingParams || isSyncingData;
+        eqPreset3Btn.disabled = isConnectingBLE || isApplyingParams || isSyncingData;
+        eqResetBtn.disabled = isConnectingBLE || isApplyingParams || isSyncingData;
+        setButtonWorking(bleConnectBtn, isConnectingBLE);
+        setButtonWorking(bleSyncBtn, isSyncingData);
+        setButtonWorking(bleConfirmBtn, isApplyingParams);
+    }
+
+    async function setupBLEConnection() {
+        resetBleWriteQueue();
+
+        const server = await bleDevice.gatt.connect();
+        currentServer = server;
+        await sleep(300);
+
+        if (!bleDevice.gatt.connected) {
+            throw new Error("GATT Server is disconnected");
+        }
+
+        const service = await server.getPrimaryService(0xFFE0);
+
+        // CHAR1: 写入命令 (EQ/音效)
+        bleChar1 = await service.getCharacteristic(0xFFE1);
+
+        // CHAR4: 接收通知 (状态同步)
+        bleChar4 = await service.getCharacteristic(0xFFE4);
+        bleChar4.removeEventListener('characteristicvaluechanged', onNotification);
+        await bleChar4.startNotifications();
+        bleChar4.addEventListener('characteristicvaluechanged', onNotification);
+
+        setEnabledA(true);
+        updateBleConnectButton();
+        updateActionButtons();
+    }
+
+    async function connectBLE() {
+        if (isConnectingBLE) return;
+
+        if (!navigator.bluetooth) {
+            alert("❌ 浏览器不支持蓝牙，请使用 Edge/Chrome 最新版");
+            return;
+        }
+
+        if (!window.isSecureContext) {
+            alert("❌ Web Bluetooth 需要 HTTPS、localhost 或安全的本地文件环境，普通 HTTP 页面通常不能连接蓝牙");
+            return;
+        }
+
+        if (bleDevice && bleDevice.gatt && bleDevice.gatt.connected) {
+            showToast("✅ 蓝牙已连接");
+            return;
+        }
+
+        isConnectingBLE = true;
+        updateBleConnectButton("连接中...");
+        showToast("🔍 正在扫描蓝牙...");
+
+        try {
+            bleDevice = await navigator.bluetooth.requestDevice({
+                filters: [{ name: "U-Link", services: [0xFFE0] }],
+                optionalServices: [0xFFE0],
+                acceptAllDevices: false
+            });
+
+            bleDevice.removeEventListener('gattserverdisconnected', onBluetoothDisconnected);
+            bleDevice.addEventListener('gattserverdisconnected', onBluetoothDisconnected);
+
+            await setupBLEConnection();
+            showToast("✅ 蓝牙连接成功！");
+        } catch (e) {
+            if (e.name === "NotFoundError") {
+                showToast("ℹ️ 已取消蓝牙选择");
+            } else {
+                alert("❌ 连接失败：" + e.message);
+            }
+        } finally {
+            isConnectingBLE = false;
+            updateBleConnectButton();
+            updateActionButtons();
+        }
+    };
+
+    async function syncData() {
+        if (!bleChar1 || !bleDevice || !bleDevice.gatt || !bleDevice.gatt.connected) {
+            showToast("请先连接蓝牙主机");
+            return;
+        }
+
+        if (isConnectingBLE || isApplyingParams || isSyncingData) return;
+
+        isSyncingData = true;
+        syncBatchMask = 0;
+        syncAckReceived = false;
+        updateActionButtons();
+        try {
+            await writeCommand(0xF1, 1, "同步数据");
+            showToast("✅ 正在同步数据");
+            armSyncFinishTimer();
+        } catch (e) {
+            isSyncingData = false;
+            clearSyncFinishTimer();
+            updateActionButtons();
+            throw e;
+        }
+    }
+</script>
+
+</body>
+</html>
+
